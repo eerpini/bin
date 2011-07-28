@@ -1,0 +1,88 @@
+#!/bin/bash
+#    ssh-setup 
+#    Copyright (C) 2011  Satish Eerpini
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License along
+#    with this program; if not, write to the Free Software Foundation, Inc.,
+#    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+set -x
+
+
+if [ $# -eq 0 ]; then
+	echo "Usage : setup_ssh <local_interface> <remote_ip>"
+	echo "Example : setup_ssh wlan0 192.168.0.10"
+	exit 1
+fi
+
+interface=$1
+remote_ip=$2
+my_ip=$(ifconfig $interface | grep "inet addr" | sed 's/inet addr://g' | awk '{print $1}')
+
+if [ $? -ne 0 ]; then
+	echo "Could not get the current machines ip"
+	exit 1
+fi
+
+if [ $# -eq 3 ];then 
+	user=$3
+else
+	user=$USER
+fi
+
+if [ "$user" = "root" ]; then
+	remote_home="/root/.ssh"
+else
+	remote_home="/home/$user/.ssh"
+fi
+
+
+echo "Checking for remote copy program .."
+which scp
+if [ $? -eq 0 ]; then
+	remote_copy="scp"
+else
+	which rsync
+	if [ $? -eq 0 ]; then
+		remote_copy="rsync"
+	else
+		echo "Could not find a remote copy program, quitting !"
+		exit 1
+	fi
+fi
+
+
+which ssh-copy-id
+
+if [ $? -ne 0 ]; then
+	echo "Could not find ssh-copy-id "
+	exit 1
+fi
+
+if ! [ -f ~/.ssh/id_rsa.pub ]; then
+	echo "Could not find the default public key : ~/.ssh/id_rsa.pub"
+	exit 1
+fi
+
+echo "ssh-copy-id $user@$remote_ip"
+ssh-copy-id $user@$remote_ip
+$remote_copy $user@$remote_ip:$remote_home/*.pub ./
+cat *.pub >> ~/.ssh/authorized_keys
+rm -rf *.pub
+
+if [ $? -ne 0 ];then
+	echo "Copying the public keys failed ... quitting "
+	exit 1
+else
+	echo "Successfull"
+	exit 0
+fi

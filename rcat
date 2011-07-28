@@ -1,0 +1,21 @@
+#!/bin/bash
+#script to remotely concatenate files.
+#args -> rcat file1 file2 
+#concatenates file1 to remote file file2
+local_file=$1
+username=`echo $2 | sed 's/:/\t/g' | awk '{print $1}' | sed 's/@/\t/g' | awk '{print $1}'`
+remote_host=`echo $2 | sed 's/:/\t/g' | awk '{print $1}' | sed 's/@/\t/g' | awk '{print $2}'`
+remote_file=`echo $2 | sed 's/:/\t/g' | awk '{print $2}'`
+temp_folder="/tmp/$#"
+file_name=`echo $local_file  | sed 's/\// /g' | awk '{print $NF}'`
+if [ -d $local_file ] ;
+then
+	echo "Cannot cat a directory"
+	echo "Qutting"
+	exit
+fi
+rsync $local_file $username@$remote_host:$temp_folder/
+ssh $username@$remote_host "cat $temp_folder/$file_name >> $remote_file && rm -rf $temp_folder/$file_name"
+echo "done"
+echo "rcat $local_file $username@$remote_host:$remote_file"
+
